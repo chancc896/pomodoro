@@ -1,0 +1,10 @@
+# 忽略GUI设置
+*.uvguix.kingham
+
+# 忽略所有位置的 .vscode 目录
+**/.vscode/
+
+
+# 编译产物
+lv_sim_vscode_win/build/
+lv_sim_vscode_win/bin/
