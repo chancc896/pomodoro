@@ -16,6 +16,9 @@ lv_obj_t * ui_PomodoroResetBtn;
 lv_obj_t * ui_PomodoroResetLabel;
 lv_obj_t * pomodoro_arc;
 
+static lv_obj_t * pomo_tomato;        /* 番茄圆形 */
+static lv_obj_t * pomo_state_label;   /* 状态文字 */
+static lv_obj_t * pomo_round_label;   /* 轮数显示 */
 
 //工作时间和休息时间和休息轮暂定写死后用变量替代
 uint16_t p_work_min   = 25 ;
@@ -86,6 +89,27 @@ static void pomodoro_update_arc(void)
     }
 }
 
+/*---- 刷新状态文字和番茄颜色 ----*/
+static void pomodoro_update_state_label(void)
+{
+    const char * txt;
+    lv_color_t color;
+    switch(state) {
+        case POMODORO_READY: txt = "Ready"; color = lv_palette_main(LV_PALETTE_GREY);  break;
+        case POMODORO_WORK:  txt = "Work";  color = lv_palette_main(LV_PALETTE_RED);   break;
+        case POMODORO_BREAK: txt = "Break"; color = lv_palette_main(LV_PALETTE_GREEN); break;
+        default:             txt = "";      color = lv_palette_main(LV_PALETTE_GREY);  break;
+    }
+    lv_label_set_text(pomo_state_label, txt);
+    lv_obj_set_style_bg_color(pomo_tomato, color, 0);
+}
+/*---- 刷新轮数显示 ----*/
+static void pomodoro_update_round_label(void)
+{
+    char buf[16];
+    snprintf(buf, sizeof(buf), "Round %u/%u", work_done_cnt + 1, p_rounds);
+    lv_label_set_text(pomo_round_label, buf);
+}
 
 /*---- 定时器回调：每100ms一次 ----*/
 static void pomodoro_timer_cb(lv_timer_t * timer)
@@ -99,7 +123,8 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
 
     pomodoro_update_label();
     pomodoro_update_arc();
-
+    pomodoro_update_state_label();
+    pomodoro_update_round_label();
 
     if(remain_ms > 0) return;//还未倒计时完成，不做状态切换判断，直接返回直至倒计时完成
     switch(state)
@@ -131,11 +156,6 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
             remain_ms = p_work_min * 60 * 1000; // 准备阶段完成，重置剩余时间为工作阶段的时间
             break;
     }
-
-
-    
-
-
 }
 
 /*---- 开始/暂停按钮/回调函数 ----*/
@@ -177,6 +197,23 @@ void ui_PomodoroPage_screen_init(void)
     lv_obj_set_style_arc_color(pomodoro_arc, lv_palette_main(LV_PALETTE_BLUE), LV_PART_INDICATOR);
     lv_obj_set_style_arc_width(pomodoro_arc, 12, LV_PART_INDICATOR);
     lv_obj_clear_flag(pomodoro_arc, LV_OBJ_FLAG_CLICKABLE);
+
+    /*---- 番茄圆形 ----*/
+    pomo_tomato = lv_obj_create(ui_PomodoroPage);
+    lv_obj_set_size(pomo_tomato, 50, 50);
+    lv_obj_align(pomo_tomato, LV_ALIGN_CENTER, 0, -110);   /* 环上方 */
+    lv_obj_clear_flag(pomo_tomato, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(pomo_tomato, lv_palette_main(LV_PALETTE_GREY), 0);
+    lv_obj_set_style_bg_opa(pomo_tomato, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(pomo_tomato, 0, 0);
+    lv_obj_set_style_radius(pomo_tomato, 25, 0);            /* 50×50 圆 */
+    /*---- 状态文字（父亲是番茄）----*/
+    pomo_state_label = lv_label_create(pomo_tomato);
+    lv_obj_set_style_text_color(pomo_state_label, lv_color_white(), 0);
+    lv_obj_center(pomo_state_label);
+    /*---- 轮数显示（页面右下角）----*/
+    pomo_round_label = lv_label_create(ui_PomodoroPage);
+    lv_obj_align(pomo_round_label, LV_ALIGN_BOTTOM_MID, 0, -5);
 
     /*---- 时间标签 ----*/
     ui_PomodoroTimeLabel = lv_label_create(ui_PomodoroPage);//创建一个结构体将标签放在页面上，赋值给ui_PomodoroTimeLabel
