@@ -16,17 +16,16 @@ lv_obj_t * ui_PomodoroResetBtn;
 lv_obj_t * ui_PomodoroResetLabel;
 lv_obj_t * pomodoro_arc;
 
-lv_obj_t * pomo_tomato;        /* 番茄圆形 */
-lv_obj_t * pomo_state_label;   /* 状态文字 */
-lv_obj_t * pomo_round_label;   /* 轮数显示 */
-lv_obj_t * pomo_leaf;         /* 番茄叶子 */
+static lv_obj_t * pomo_tomato;        /* 番茄圆形 */
+static lv_obj_t * pomo_state_label;   /* 状态文字 */
+static lv_obj_t * pomo_round_label;   /* 轮数显示 */
+static lv_obj_t * pomo_leaf;         /* 番茄叶子 */
 
 //工作时间和休息时间和休息轮暂定写死后用变量替代
 uint16_t p_work_min   = 25 ;
 uint16_t p_break_min  = 5 ; 
 uint8_t p_rounds   = 4 ;
 uint8_t p_ready_min = 1 ; // 准备阶段的时间
-
 
 typedef enum//定义一个枚举类型，表示番茄钟的不同阶段
 {
@@ -41,6 +40,8 @@ static uint8_t work_done_cnt = 0; // 已完成工作次数
 /*---- 倒计时状态 ----*/
 static uint32_t remain_ms;        // 剩余时间
 static bool running;              // 是否正在倒计时
+static bool pomo_initialized = false;
+static bool page_active;
 static lv_timer_t * pomodoro_timer;
 
 /*---- 把剩余时间刷到标签 ----*/
@@ -80,7 +81,7 @@ static void pomodoro_update_arc(void)
     } else {
         lv_obj_set_style_arc_opa(pomodoro_arc, LV_OPA_COVER, LV_PART_INDICATOR);
         if(filled_deg >= 360) {
-            lv_arc_set_angles(pomodoro_arc, 0, 359);          /* 整圈填满 */
+            lv_arc_set_angles(pomodoro_arc, 0, 360);          /* 整圈填满 */
         } else {
             int16_t end_angle = 270 - filled_deg;             /* 逆时针：角度减小 */
             if(end_angle < 0) end_angle += 360;
@@ -119,12 +120,13 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
         remain_ms -= 100;
     else
         remain_ms = 0;
-
-    pomodoro_update_label();
-    pomodoro_update_arc();
-    pomodoro_update_state_label();
-    pomodoro_update_round_label();
-
+    if(page_active)
+    {
+        pomodoro_update_label();
+        pomodoro_update_arc();
+        pomodoro_update_state_label();
+        pomodoro_update_round_label();
+    }
     if(remain_ms > 0) return;//还未倒计时完成，不做状态切换判断，直接返回直至倒计时完成
     switch(state)
     {
@@ -142,7 +144,7 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
                 running = false;
                 work_done_cnt = 0;
                 remain_ms = p_ready_min * 60 * 1000;
-                lv_label_set_text(ui_PomodoroStartLabel, "Start");
+                if(page_active)lv_label_set_text(ui_PomodoroStartLabel, LV_SYMBOL_PLAY);
             }
             else
             {
@@ -155,10 +157,13 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
             remain_ms = p_work_min * 60 * 1000; // 准备阶段完成，重置剩余时间为工作阶段的时间
             break;
     }
-    pomodoro_update_label();
-    pomodoro_update_arc();
-    pomodoro_update_state_label();
-    pomodoro_update_round_label();
+    if(page_active)
+    {
+        pomodoro_update_label();
+        pomodoro_update_arc();
+        pomodoro_update_state_label();
+        pomodoro_update_round_label();
+    }
 }
 
 /*---- 开始/暂停按钮/回调函数 ----*/
@@ -250,7 +255,7 @@ void ui_PomodoroPage_screen_init(void)
     lv_obj_set_style_radius(ui_PomodoroStartBtn, 30, 0);             /* 60的一半 → 正圆 */
     lv_obj_set_style_bg_color(ui_PomodoroStartBtn, lv_color_hex(0x4F7942), 0);  /* 深绿，配设计图 */
     ui_PomodoroStartLabel = lv_label_create(ui_PomodoroStartBtn);
-    lv_label_set_text(ui_PomodoroStartLabel, LV_SYMBOL_PLAY);        /* 播放三角图标 */
+    lv_label_set_text(ui_PomodoroStartLabel, running ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);        /* 播放三角图标 */
     lv_obj_center(ui_PomodoroStartLabel);
 
     /*---- 重置按钮 ----*/
@@ -263,12 +268,16 @@ void ui_PomodoroPage_screen_init(void)
     lv_label_set_text(ui_PomodoroResetLabel,LV_SYMBOL_REFRESH);
     lv_obj_center(ui_PomodoroResetLabel);
 
+    
     /*---- 倒计时初始化 ----*/
-    remain_ms = p_ready_min * 60 * 1000;
-    running = false;
-    pomodoro_timer = NULL;
-    state = POMODORO_READY;
-    work_done_cnt = 0;
+    if(!pomo_initialized)
+    {
+        remain_ms = p_ready_min * 60 * 1000;
+        running = false;
+        state = POMODORO_READY;
+        work_done_cnt = 0;
+        pomo_initialized = true;
+    }
 
     pomodoro_update_label();
     pomodoro_update_arc();
@@ -278,14 +287,17 @@ void ui_PomodoroPage_screen_init(void)
     /*---- 注册事件回调 + 创建定时器 ----*/
     lv_obj_add_event_cb(ui_PomodoroStartBtn, start_btn_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_PomodoroResetBtn, reset_btn_cb, LV_EVENT_CLICKED, NULL);
-    pomodoro_timer = lv_timer_create(pomodoro_timer_cb, 100, NULL);
+
+    if (pomodoro_timer == NULL ) 
+    { 
+        pomodoro_timer = lv_timer_create(pomodoro_timer_cb, 100, NULL);
+    }
+    
+    page_active = true;
 }
 
 //////////////////// SCREEN deinit ////////////////////
 void ui_PomodoroPage_screen_deinit(void)
 {
-    if(pomodoro_timer != NULL) {      // 页面销毁前删掉定时器，防止它摸已销毁的控件
-        lv_timer_del(pomodoro_timer);
-        pomodoro_timer = NULL;
-    }
+    page_active = false;
 }
