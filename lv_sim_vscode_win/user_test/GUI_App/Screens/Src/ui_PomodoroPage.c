@@ -30,12 +30,13 @@ static lv_obj_t * pomo_tomato;        /* 番茄圆形 */
 static lv_obj_t * pomo_state_label;   /* 状态文字 */
 static lv_obj_t * pomo_round_label;   /* 轮数显示 */
 static lv_obj_t * pomo_leaf;         /* 番茄叶子 */
-
+static lv_obj_t * pomo_mbox = NULL;     /* 弹窗句柄：NULL=没在弹 */
+static bool finish_pending = false;     /* 完成待提示标志 */
 //工作时间和休息时间和休息轮暂定写死后用变量替代
 uint16_t p_work_min   = 25 ;
 uint16_t p_break_min  = 5 ; 
 uint8_t p_rounds   = 4 ;
-uint8_t p_ready_min = 1 ; // 准备阶段的时间
+uint8_t p_ready_min = 0 ; // 准备阶段的时间
 
 
 typedef enum//定义一个枚举类型，表示番茄钟的不同阶段
@@ -65,6 +66,27 @@ static void pomodoro_update_label(void)
     snprintf(buf, sizeof(buf), "%02u:%02u", mm, ss);   // 注意：用 snprintf，不用 sprintf
     lv_label_set_text(ui_PomodoroTimeLabel, buf);
 }
+
+/*---- 弧跳跃动画：跳跃上下交替 ----*/
+static void arc_jump_anim(lv_obj_t * obj, int32_t v)
+{
+   lv_obj_set_y(pomodoro_arc, v); /* v 是 Y 坐标 */
+}
+
+static void pomodoro_start_jump_anim(void)
+{
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, pomodoro_arc);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)arc_jump_anim);
+    lv_anim_set_values(&a, -40, -60);   /* 从原位 -40 跳到 -60（向上 20px） */
+    lv_anim_set_time(&a, 200);           /* 上跳 200ms */
+    lv_anim_set_playback_time(&a, 200);  /* 回落 200ms */
+    lv_anim_set_repeat_count(&a, 1);     /* 跳 1 次 */
+    lv_anim_start(&a);
+
+}
+
 
 /*---- 刷新环形进度（从12点逆时针填充）----*/
 static void pomodoro_update_arc(void)
@@ -123,6 +145,8 @@ static void pomodoro_update_round_label(void)
     lv_label_set_text(pomo_round_label, buf);
 }
 
+static void pomodoro_show_finish_mbox(void);
+
 /*---- 定时器回调：每100ms一次 ----*/
 static void pomodoro_timer_cb(lv_timer_t * timer)
 {
@@ -143,7 +167,9 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
     switch(state)
     {
         case POMODORO_WORK:
-            {
+            {   
+                if(!page_active) return ;
+                pomodoro_start_jump_anim();/* 阶段切换跳跃提醒 */
                 state = POMODORO_BREAK; // 进入休息阶段
                 remain_ms = p_break_min * 60 * 1000;
             }
@@ -154,17 +180,22 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
             {
                 state = POMODORO_READY; // 完成所有轮次，回到准备阶段
                 running = false;
-                work_done_cnt = 0;
+                finish_pending = true;//未按键交互，需要再提示完成了
+                if(page_active && finish_pending)pomodoro_show_finish_mbox(); //页面存活且待显示完成才显示提示框
                 remain_ms = p_ready_min * 60 * 1000;
                 if(page_active)lv_label_set_text(ui_PomodoroStartLabel, LV_SYMBOL_PLAY);
             }
             else
             {
+                if(!page_active) return ;
+                pomodoro_start_jump_anim();   /* 阶段切换跳跃提醒 */
                 state = POMODORO_WORK; // 进入工作阶段
                 remain_ms = p_work_min * 60 * 1000;
             }
             break;
         case POMODORO_READY:
+            if(!page_active) return ;
+            pomodoro_start_jump_anim();   /* 阶段切换跳跃提醒 */
             state = POMODORO_WORK;
             remain_ms = p_work_min * 60 * 1000; // 准备阶段完成，重置剩余时间为工作阶段的时间
             break;
@@ -207,6 +238,53 @@ static void setup_btn_cb(lv_event_t * e)
     Page_Replace_Dir(&Page_PomodoroSet, LV_SCR_LOAD_ANIM_FADE_ON);//淡入动画切换到设置页面
 
 }
+
+/*---- 弹窗按钮事件 ----*/ 
+static void mbox_event_cb ( lv_event_t * e) 
+{ 
+    lv_obj_t * mbox = lv_event_get_current_target(e); 
+    uint16_t btn_id = lv_msgbox_get_active_btn(mbox); /* 0=Restart, 1=Setup */ 
+    lv_msgbox_close(mbox);
+    pomo_mbox = NULL ; 
+    if (btn_id == 0 )
+    {
+        /* Restart：重置并开始新一轮 */ 
+        state = POMODORO_READY;
+        work_done_cnt = 0 ;
+        remain_ms = p_ready_min * 60 * 1000 ;
+        running = true ;
+        finish_pending = false;//已经和按键交互，不需要再提示完成了
+        lv_label_set_text(ui_PomodoroStartLabel, LV_SYMBOL_PAUSE);
+        pomodoro_update_label();
+        pomodoro_update_arc();
+        pomodoro_update_state_label();
+        pomodoro_update_round_label();
+    }
+    else if (btn_id == 1 ) 
+    { 
+        /* Setup：跳设置页 */ 
+        running = false;//先暂停
+        work_done_cnt = 0;
+        finish_pending = false;//已经和按键交互，不需要再提示完成了
+        pomo_initialized = false; // 重新初始化番茄钟状态
+        Page_Replace_Dir(&Page_PomodoroSet, LV_SCR_LOAD_ANIM_FADE_ON);
+    }
+    else
+    {
+        finish_pending = true;//未按键交互，需要再提示完成了
+    }
+}
+
+///*---- 显示完成提示框 ----*///
+static void pomodoro_show_finish_mbox(void)
+{
+    static const char * btns[] = { "Restart" , "Setup" , "" };
+    pomo_mbox = lv_msgbox_create(ui_PomodoroPage, "Pomodoro" , "All rounds done, great job!" , btns, false );
+    lv_obj_center(pomo_mbox);
+    lv_obj_add_event_cb(pomo_mbox, mbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL );
+}
+
+
 ///////////////////// SCREEN init ////////////////////
 void ui_PomodoroPage_screen_init(void)
 {
@@ -325,6 +403,7 @@ void ui_PomodoroPage_screen_init(void)
     }
     
     page_active = true;
+
 }
 
 //////////////////// SCREEN deinit ////////////////////
