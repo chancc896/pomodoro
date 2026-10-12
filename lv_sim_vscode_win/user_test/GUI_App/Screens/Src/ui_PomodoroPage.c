@@ -3,7 +3,7 @@
 #include "../../ui.h"
 #include "../../ui_helpers.h"
 #include "../Inc/ui_PomodoroPage.h"
-
+#include "../Inc/ui_PomodoroSetPage.h"
 ///////////////////// Page Manager //////////////////
 Page_t Page_Pomodoro = {ui_PomodoroPage_screen_init, ui_PomodoroPage_screen_deinit, &ui_PomodoroPage};
 
@@ -15,6 +15,16 @@ lv_obj_t * ui_PomodoroStartLabel;
 lv_obj_t * ui_PomodoroResetBtn;
 lv_obj_t * ui_PomodoroResetLabel;
 lv_obj_t * pomodoro_arc;
+lv_obj_t * ui_PomodoroPage;
+lv_obj_t * ui_PomodoroTimeLabel;
+lv_obj_t * ui_PomodoroStartBtn;
+lv_obj_t * ui_PomodoroStartLabel;
+lv_obj_t * ui_PomodoroResetBtn;
+lv_obj_t * ui_PomodoroResetLabel;
+lv_obj_t * ui_PomodoroSetupBtn;    /* 齿轮按钮 */
+lv_obj_t * pomodoro_arc;
+
+
 
 static lv_obj_t * pomo_tomato;        /* 番茄圆形 */
 static lv_obj_t * pomo_state_label;   /* 状态文字 */
@@ -26,6 +36,7 @@ uint16_t p_work_min   = 25 ;
 uint16_t p_break_min  = 5 ; 
 uint8_t p_rounds   = 4 ;
 uint8_t p_ready_min = 1 ; // 准备阶段的时间
+
 
 typedef enum//定义一个枚举类型，表示番茄钟的不同阶段
 {
@@ -42,6 +53,7 @@ static uint32_t remain_ms;        // 剩余时间
 static bool running;              // 是否正在倒计时
 static bool pomo_initialized = false;
 static bool page_active;
+bool pomosetpageback = true;// 用于判断是否能从home回到设置页面,true为可以,false为不可以
 static lv_timer_t * pomodoro_timer;
 
 /*---- 把剩余时间刷到标签 ----*/
@@ -120,7 +132,7 @@ static void pomodoro_timer_cb(lv_timer_t * timer)
         remain_ms -= 100;
     else
         remain_ms = 0;
-    if(page_active)
+    if(page_active)//只有在番茄钟页面存活的时候才能刷新显示，否则不刷新，避免在其他页面刷新导致闪烁
     {
         pomodoro_update_label();
         pomodoro_update_arc();
@@ -187,6 +199,14 @@ static void reset_btn_cb(lv_event_t * e)
     pomodoro_update_round_label();
 }
 
+/*---- 齿轮按钮 ----*/
+static void setup_btn_cb(lv_event_t * e)
+{
+    running = false;//先暂停
+    pomo_initialized = false; // 重新初始化番茄钟状态
+    Page_Replace_Dir(&Page_PomodoroSet, LV_SCR_LOAD_ANIM_FADE_ON);//淡入动画切换到设置页面
+
+}
 ///////////////////// SCREEN init ////////////////////
 void ui_PomodoroPage_screen_init(void)
 {
@@ -213,7 +233,6 @@ void ui_PomodoroPage_screen_init(void)
     lv_obj_set_style_arc_rounded(pomodoro_arc, true , LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(pomodoro_arc, true , LV_PART_INDICATOR);
     
-
     /* 番茄本体：红椭圆 */
     pomo_tomato = lv_obj_create(ui_PomodoroPage);
     lv_obj_set_size(pomo_tomato, 85, 75);
@@ -268,7 +287,18 @@ void ui_PomodoroPage_screen_init(void)
     lv_label_set_text(ui_PomodoroResetLabel,LV_SYMBOL_REFRESH);
     lv_obj_center(ui_PomodoroResetLabel);
 
-    
+    //设置番茄种齿轮按钮，可以让用户进入设置页面，有两种方式，第一种是点击齿轮，第二种是结束番茄定时后在结束页面选择以当前的设置开始新一轮，或者是进入设置页面修改设置
+    /*---- 齿轮按钮：常驻设置入口 ----*/
+    ui_PomodoroSetupBtn = lv_btn_create(ui_PomodoroPage);
+    lv_obj_set_size(ui_PomodoroSetupBtn, 33, 33);
+    lv_obj_align(ui_PomodoroSetupBtn, LV_ALIGN_TOP_RIGHT, -15, 15);   /* 右上角 */
+    lv_obj_set_style_radius(ui_PomodoroSetupBtn, 20, 0);              /* 正圆 */
+    lv_obj_set_style_bg_color(ui_PomodoroSetupBtn, lv_color_hex(0x4F7942), 0);
+    lv_obj_t * setup_label = lv_label_create(ui_PomodoroSetupBtn);
+    lv_label_set_text(setup_label, LV_SYMBOL_SETTINGS);                /* 齿轮图标 */
+    lv_obj_center(setup_label);
+
+
     /*---- 倒计时初始化 ----*/
     if(!pomo_initialized)
     {
@@ -287,6 +317,7 @@ void ui_PomodoroPage_screen_init(void)
     /*---- 注册事件回调 + 创建定时器 ----*/
     lv_obj_add_event_cb(ui_PomodoroStartBtn, start_btn_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_PomodoroResetBtn, reset_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_PomodoroSetupBtn, setup_btn_cb, LV_EVENT_CLICKED, NULL);
 
     if (pomodoro_timer == NULL ) 
     { 

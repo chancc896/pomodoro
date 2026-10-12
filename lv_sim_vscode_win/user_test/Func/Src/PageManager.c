@@ -125,6 +125,24 @@ void Page_Load(Page_t *newPage) {
     Page_Load_Dir(newPage, LV_SCR_LOAD_ANIM_MOVE_RIGHT);
 }
 
+void Page_Replace_Dir(Page_t *newPage, lv_scr_load_anim_t anim)
+{
+    if(PageStack.top == 0)//如果栈为空，退为普通压栈
+    {
+        page_stack_push(&PageStack, newPage);
+        newPage->init();
+        lv_scr_load_anim(*newPage->page_obj, anim, 500, 0 ,true);
+        return;
+    }
+    //将栈顶的页面销毁
+    PageStack.pages[PageStack.top - 1]->deinit();
+    //将新页面压入栈顶
+    PageStack.pages[PageStack.top - 1] = newPage;
+
+    newPage->init();
+    lv_scr_load_anim(*newPage->page_obj, anim, 500, 0 ,true);
+}
+
 /**
  * initialize the page manager & start home page
  *

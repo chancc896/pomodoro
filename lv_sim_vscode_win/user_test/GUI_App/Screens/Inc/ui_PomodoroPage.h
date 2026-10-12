@@ -11,6 +11,7 @@ extern lv_obj_t * ui_PomodoroPage;
 
 extern Page_t Page_Pomodoro;
 
+extern bool pomosetpageback;
 
 extern uint16_t p_work_min; 
 extern uint16_t p_break_min; 

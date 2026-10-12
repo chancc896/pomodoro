@@ -29,5 +29,5 @@ void Page_Back_Bottom(void);
 void Page_Load(Page_t *newPage);
 void Pages_init(void);
 void Page_Load_Dir (Page_t *newPage, lv_scr_load_anim_t anim);
-
+void Page_Replace_Dir(Page_t *newPage, lv_scr_load_anim_t anim);
 #endif // PAGE_STACK_H

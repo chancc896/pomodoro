@@ -68,7 +68,9 @@ static void rounds_inc_cb(lv_event_t * e)
 /* ---- Start 按钮：进入计时页 ---- */
 static void start_btn_cb(lv_event_t * e)
 {
-    Page_Load_Dir(&Page_Pomodoro, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    Page_Replace_Dir(&Page_Pomodoro, LV_SCR_LOAD_ANIM_FADE_ON);
+    pomosetpageback = false;// 设置为false，表示不可以从home回到设置页面
+
 }
 
 /* ---- 辅助：创建一行设置项（演示函数指针当参数） ---- */

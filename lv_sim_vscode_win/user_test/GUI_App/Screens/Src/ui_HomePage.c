@@ -175,9 +175,15 @@ void ui_event_HomePage(lv_event_t * e)
       }
       else if (lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT)
       {
-			  Page_Load_Dir(&Page_PomodoroSet, LV_SCR_LOAD_ANIM_MOVE_LEFT);
-      }
-      
+        if(pomosetpageback)
+        {
+          Page_Load_Dir(&Page_PomodoroSet, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+        }
+			  else
+        {
+          Page_Load_Dir(&Page_Pomodoro, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+        }
+      } 
 		}
 }
 
