@@ -16,6 +16,7 @@ extern bool pomosetpageback;
 extern uint16_t p_work_min; 
 extern uint16_t p_break_min; 
 extern uint8_t p_rounds;
+extern uint8_t p_ready_min;
 
 void ui_PomodoroPage_screen_init(void);
 void ui_PomodoroPage_screen_deinit(void);
