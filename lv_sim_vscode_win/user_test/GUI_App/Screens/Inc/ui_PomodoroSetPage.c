@@ -163,19 +163,19 @@ void ui_PomodoroSetPage_screen_init(void)
     //给轮盘设置名字标签
     lv_obj_t * lbl_work = lv_label_create(ui_PomodoroSetPage);
     lv_label_set_text(lbl_work, "Work");
-    lv_obj_align(lbl_work, LV_ALIGN_TOP_LEFT, 24, 62);
+    lv_obj_align(lbl_work, LV_ALIGN_TOP_LEFT, 24, 27);
 
     lv_obj_t * lbl_break = lv_label_create(ui_PomodoroSetPage);
     lv_label_set_text(lbl_break, "Break");
-    lv_obj_align(lbl_break, LV_ALIGN_TOP_RIGHT, -25, 62);
+    lv_obj_align(lbl_break, LV_ALIGN_TOP_RIGHT, -25, 27);
 
     lv_obj_t * lbl_rounds = lv_label_create(ui_PomodoroSetPage);
     lv_label_set_text(lbl_rounds, "Rounds");
-    lv_obj_align(lbl_rounds, LV_ALIGN_BOTTOM_LEFT, 18, -91);
+    lv_obj_align(lbl_rounds, LV_ALIGN_BOTTOM_LEFT, 18, -84);
 
     lv_obj_t * lbl_ready = lv_label_create(ui_PomodoroSetPage);
     lv_label_set_text(lbl_ready, "Ready");
-    lv_obj_align(lbl_ready, LV_ALIGN_BOTTOM_RIGHT, -20, -91);
+    lv_obj_align(lbl_ready, LV_ALIGN_BOTTOM_RIGHT, -20, -84);
 
 
     /* Start 按钮 */
